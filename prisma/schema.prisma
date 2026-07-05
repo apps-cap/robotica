@@ -1,0 +1,152 @@
+// Prisma schema — Taller de Robótica Educativa
+// Nota: SQLite no soporta enums nativos en Prisma, por lo que los campos que
+// conceptualmente son enum (grado, rol, periodo, tipo, evento, estado) se
+// modelan como String con los valores válidos documentados en lib/constants.js
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Valores válidos de referencia (ver lib/constants.js):
+// Grado: K3 | PRIMARIA_1_2 | PRIMARIA_4
+// Rol: ADMIN | PROFESOR
+// Periodo: P1 | P2 | P3 | P4
+// TipoReto: INDIVIDUAL | EQUIPO
+// Evento: WRO_MEXICO | INFOMATRIX | EXPOCIENCIAS
+// EstadoEquipo: CANDIDATO | SELECCIONADO | NO_SELECCIONADO
+// EstadoAlumno: ACTIVO | BAJA
+// EstadoAsistencia: PRESENTE | AUSENTE | RETARDO
+
+model Usuario {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  nombre    String
+  rol       String
+  grado     String?
+  createdAt DateTime @default(now())
+  equiposComoCoach Equipo[]
+}
+
+model Alumno {
+  id                        String         @id @default(cuid())
+  nombre                    String
+  grado                     String
+  grupo                     String?
+  fechaNacimiento           DateTime?
+  tutorNombre               String?
+  tutorContacto             String?
+  estado                    String         @default("ACTIVO")
+  fechaAlta                 DateTime       @default(now())
+  fechaBaja                 DateTime?
+  disponibleExtracurricular Boolean        @default(false)
+  asistenciaNota            Int?
+  avalFamilia               Boolean        @default(false)
+  notas                     String?
+  createdAt                 DateTime       @default(now())
+  intentos                  Intento[]
+  equipos                   EquipoAlumno[]
+  asistencias               Asistencia[]
+}
+
+model Habilidad {
+  id          String          @id @default(cuid())
+  nombre      String
+  categoria   String
+  grado       String
+  descripcion String?
+  retos       RetoHabilidad[]
+}
+
+model Reto {
+  id              String          @id @default(cuid())
+  titulo          String
+  descripcion     String?
+  grado           String
+  periodo         String
+  tipo            String          @default("INDIVIDUAL")
+  tiempoLimiteSeg Int?
+  documentoUrl    String?
+  creadoPorEmail  String
+  createdAt       DateTime        @default(now())
+  habilidades     RetoHabilidad[]
+  intentos        Intento[]
+}
+
+model RetoHabilidad {
+  retoId      String
+  habilidadId String
+  reto        Reto      @relation(fields: [retoId], references: [id], onDelete: Cascade)
+  habilidad   Habilidad @relation(fields: [habilidadId], references: [id], onDelete: Cascade)
+
+  @@id([retoId, habilidadId])
+}
+
+model Intento {
+  id                  String   @id @default(cuid())
+  retoId              String
+  alumnoId            String
+  equipoLabel         String?
+  funcionalidad       Int
+  procesoDiseno       Int
+  trabajoColaborativo Int
+  comunicacion        Int
+  creatividad         Int
+  puntajeTotal        Int
+  tiempoSegundos      Int?
+  evidenciaUrl        String?
+  comentarios         String?
+  evaluadoPorEmail    String
+  fecha               DateTime @default(now())
+  reto                Reto     @relation(fields: [retoId], references: [id], onDelete: Cascade)
+  alumno              Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+}
+
+model Equipo {
+  id             String         @id @default(cuid())
+  nombre         String
+  evento         String
+  categoria      String
+  grado          String
+  cicloEscolar   String         @default("2026-2027")
+  estado         String         @default("CANDIDATO")
+  fechaSeleccion DateTime?
+  justificacion  String?
+  coachId        String?
+  coach          Usuario?       @relation(fields: [coachId], references: [id])
+  createdAt      DateTime       @default(now())
+  miembros       EquipoAlumno[]
+}
+
+model EquipoAlumno {
+  equipoId String
+  alumnoId String
+  rol      String?
+  equipo   Equipo @relation(fields: [equipoId], references: [id], onDelete: Cascade)
+  alumno   Alumno @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+
+  @@id([equipoId, alumnoId])
+}
+
+model Asistencia {
+  id                 String   @id @default(cuid())
+  alumnoId           String
+  fecha              DateTime
+  estado             String
+  registradoPorEmail String
+  createdAt          DateTime @default(now())
+  alumno             Alumno   @relation(fields: [alumnoId], references: [id], onDelete: Cascade)
+
+  @@unique([alumnoId, fecha])
+}
+
+model Log {
+  id        String   @id @default(cuid())
+  level     String   @default("INFO")
+  message   String
+  details   String?
+  timestamp DateTime @default(now())
+}
